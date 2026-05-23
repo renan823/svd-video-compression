@@ -1,5 +1,9 @@
+from src.videobw import VideoBW
+
 def main():
-    print("Hello from svd-compression!")
+    video = VideoBW()
+    video.read("stop-motion.mp4")
+    video.write()
 
 
 if __name__ == "__main__":
