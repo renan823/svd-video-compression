@@ -72,8 +72,8 @@ class VideoBW:
                     
         
             
-    def write(self):
-        container = av.open("compressed.mkv", mode="w")
+    def write(self, k):
+        container = av.open(f"compressed_{k}.mkv", mode="w")
 
         # Config da stream e tipo de codec
         stream = container.add_stream("libx264", rate=int(self.fps))
