@@ -11,7 +11,7 @@ def main():
 
     U, S, VT = SVD(M)
 
-    ks = [0, 1, 2, 3, 4, 5, 10, 20, 50, 100, 200]
+    ks = [0, 1, 2, 3, 4, 5, 10, 20, 50]
 
     errors = []
     variances = []
@@ -45,5 +45,21 @@ def main():
     video.expand(L)
     video.write(1)
 
+    # reconstruir fundo de referência
+    L = reconstruct_Background(U, S, VT, 1)
+    L = np.clip(L, 0, 255)
+
+    # matriz de movimento
+    S_mov = np.abs(M.astype(np.float64) - L.astype(np.float64))
+
+    # threshold simples
+    threshold = 30
+    mask = (S_mov > threshold) * 255
+    mask = mask.astype(np.uint8)
+
+    # salvar vídeo do movimento
+    S_vis = np.clip(S_mov * 3, 0, 255).astype(np.uint8)
+    video.frames = [S_vis[:, i].reshape(video.height, video.width) for i in range(S_vis.shape[1])]
+    video.write(1)
 if __name__ == "__main__":
     main()
