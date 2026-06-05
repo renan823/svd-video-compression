@@ -29,5 +29,5 @@ def error(M, L):
     return np.linalg.norm(M-L, ord='fro')
 
 def cumulative_variance(sigma):
-    singular_values = np.diag(sigma)
+    singular_values = np.diag(sigma)**2
     return np.cumsum(singular_values)/np.sum(singular_values)
