@@ -19,7 +19,7 @@ def main():
     # 1. LEITURA DO VÍDEO
     # ======================
     video = VideoBW()
-    video.read("stop-motion.mp4")
+    video.read("bingo.avi")
 
     threshold = 30
 
