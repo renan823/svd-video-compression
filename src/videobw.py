@@ -64,7 +64,7 @@ class VideoBW:
 
         # Ler frames e salvar no array
         for packet in container.demux(stream):
-            print(packet)
+            #print(packet)
             for frame in packet.decode():
                 # Converter RGB pra bw
                 nframe = frame.to_ndarray(format="rgb24")
@@ -72,25 +72,20 @@ class VideoBW:
                     
         
             
-    def write(self, k):
-        container = av.open(f"compressed_{k}.mkv", mode="w")
+    def write(self, path: str):
+        container = av.open(path, mode="w")
 
-        # Config da stream e tipo de codec
         stream = container.add_stream("libx264", rate=int(self.fps))
         stream.width = self.width
         stream.height = self.height
-
-        # Antes podia ser qualquer padrão de cor
-        # mas pra ser bw tem que especificar o tipo
         stream.pix_fmt = "yuv420p"
 
         for nframe in self.frames:
-            # img numpy -> frame do video
             frame = av.VideoFrame.from_ndarray(nframe, format="gray")
+
             for packet in stream.encode(frame):
                 container.mux(packet)
 
-        # Flush e escrita
         for packet in stream.encode():
             container.mux(packet)
 

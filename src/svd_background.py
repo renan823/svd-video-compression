@@ -26,7 +26,7 @@ def reconstruct_Background(U, sigma, V, k):
     return Uk @ sigmak @ Vk
 
 def error(M, L):
-    return np.linalg.norm(M.astype(np.float64) - L.astype(np.float64), ord='fro')
+    return np.linalg.norm(M.astype(np.float32) - L.astype(np.float32), ord='fro')
 
 def cumulative_variance(sigma):
     singular_values = np.diag(sigma)**2

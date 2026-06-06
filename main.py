@@ -1,65 +1,149 @@
-from src.videobw import VideoBW
-from src.svd_background import SVD, reconstruct_Background, error, cumulative_variance
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+
+from src.videobw import VideoBW
+from src.svd_background import (
+    SVD,
+    reconstruct_Background,
+    error,
+    cumulative_variance
+)
+
+logging.getLogger("libav").setLevel(logging.ERROR)
+
 
 def main():
+    # ======================
+    # 1. LEITURA DO VÍDEO
+    # ======================
     video = VideoBW()
     video.read("stop-motion.mp4")
 
-    M = video.vectorize().astype(np.float64)
+    threshold = 30
 
+    output_dir = f"outputs_{threshold}"
+    os.makedirs(output_dir, exist_ok=True)
+
+    with open(f"{output_dir}/info.txt", "w") as f:
+        f.write(f"Threshold: {threshold}\n")
+        f.write(f"Frames: {len(video.frames)}\n")
+        f.write(f"Resolution: {video.width}x{video.height}\n")
+
+    M = video.vectorize().astype(np.float32)
+
+    # ======================
+    # 2. SVD
+    # ======================
     U, S, VT = SVD(M)
 
-    ks = [0, 1, 2, 3, 4, 5, 10, 20, 50]
+    # ======================
+    # 3. ERRO + VARIÂNCIA
+    # ======================
+    ks = [1, 2, 3, 4, 5, 10, 20, 50, 100]
 
     errors = []
     variances = []
 
     for k in ks:
-        L = reconstruct_Background(U, S, VT, k)
-        errors.append(error(M, L))
+        Lk = reconstruct_Background(U, S, VT, k)
+        errors.append(error(M, Lk))
         variances.append(cumulative_variance(S)[k])
 
-    plt.figure(figsize=(12, 5))
-
-    plt.subplot(1, 2, 1)
+    # salvar gráfico erro
+    plt.figure()
     plt.plot(ks, errors, 'o-')
-    plt.xlabel('k')
-    plt.ylabel('Error')
-    plt.title('Reconstruction Error')
+    plt.title("Reconstruction Error")
+    plt.xlabel("k")
+    plt.ylabel("Error")
+    plt.savefig(f"{output_dir}/error.png")
+    plt.close()
 
-    plt.subplot(1, 2, 2)
+    # salvar gráfico variância
+    plt.figure()
     plt.plot(ks, variances, 'o-')
-    plt.xlabel('k')
-    plt.ylabel('Cumulative Variance')
-    plt.title('Cumulative Variance')
+    plt.title("Cumulative Variance")
+    plt.xlabel("k")
+    plt.ylabel("Variance")
+    plt.savefig(f"{output_dir}/variance.png")
+    plt.close()
 
-    plt.tight_layout()
-    plt.show()
+    # ======================
+    # 4. DECAY SINGULAR VALUES
+    # ======================
+    sigma_vals = np.diag(S)
 
+    plt.figure()
+    plt.plot(sigma_vals)
+    plt.title("Decaimento dos valores singulares")
+    plt.xlabel("i")
+    plt.ylabel("σ_i")
+    plt.savefig(f"{output_dir}/singular_values.png")
+    plt.close()
+
+    # ======================
+    # 5. BACKGROUND + MOVIMENTO
+    # ======================
     L = reconstruct_Background(U, S, VT, 1)
-    L = np.clip(L, 0, 255)
-    L = L.astype(np.uint8)
 
-    video.expand(L)
-    video.write(1)
+    S_mov = np.abs(M - L)
 
-    # reconstruir fundo de referência
-    L = reconstruct_Background(U, S, VT, 1)
-    L = np.clip(L, 0, 255)
-
-    # matriz de movimento
-    S_mov = np.abs(M.astype(np.float64) - L.astype(np.float64))
-
-    # threshold simples
-    threshold = 30
     mask = (S_mov > threshold) * 255
     mask = mask.astype(np.uint8)
 
-    # salvar vídeo do movimento
+    # ======================
+    # 6. FRAME COMPARATIVO
+    # ======================
+    L_uint8 = np.clip(L, 0, 255).astype(np.uint8)
+
+    video.expand(L_uint8)
+    video.write(f"{output_dir}/background.mkv")
+
+    i = 10
+
+    original = M[:, i].reshape(video.height, video.width)
+    background = L[:, i].reshape(video.height, video.width)
+    movement = mask[:, i].reshape(video.height, video.width)
+
+    plt.figure(figsize=(10, 3))
+
+    plt.subplot(1, 3, 1)
+    plt.title("Original")
+    plt.imshow(original, cmap="gray")
+
+    plt.subplot(1, 3, 2)
+    plt.title("Background")
+    plt.imshow(background, cmap="gray")
+
+    plt.subplot(1, 3, 3)
+    plt.title("Movement")
+    plt.imshow(movement, cmap="gray")
+
+    plt.savefig(f"{output_dir}/frames_comparacao.png")
+    plt.close()
+
+    # ======================
+    # 7. VÍDEO DO MOVIMENTO
+    # ======================
     S_vis = np.clip(S_mov * 3, 0, 255).astype(np.uint8)
-    video.frames = [S_vis[:, i].reshape(video.height, video.width) for i in range(S_vis.shape[1])]
-    video.write(1)
+    video.frames = [
+        S_vis[:, i].reshape(video.height, video.width)
+        for i in range(S_vis.shape[1])
+    ]
+
+    video.write(f"{output_dir}/movement.mkv")
+
+    # ======================
+    # 8. COMPARAÇÃO SVD
+    # ======================
+    U2, s2, VT2 = np.linalg.svd(M, full_matrices=False)
+
+    L_lib = U2[:, :1] @ np.diag(s2[:1]) @ VT2[:1, :]
+
+    print("Erro SVD manual:", error(M, reconstruct_Background(U, S, VT, 1)))
+    print("Erro SVD numpy:", error(M, L_lib))
+
+
 if __name__ == "__main__":
     main()
