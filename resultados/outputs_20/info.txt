@@ -1,0 +1,3 @@
+Threshold: 20
+Frames: 228
+Resolution: 640x360

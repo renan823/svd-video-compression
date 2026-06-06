@@ -13,7 +13,7 @@ def SVD(M):
     singularValues = np.sqrt(np.maximum(eigenValues, 0))
     sigma = np.diag(singularValues)
 
-    U = M @ V @ np.linalg.inv(sigma)
+    U = M @ V @ np.linalg.pinv(sigma)
 
     return U, sigma, V.T
 
