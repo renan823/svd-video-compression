@@ -19,7 +19,7 @@ def main():
     # 1. LEITURA DO VÍDEO
     # ======================
     video = VideoBW()
-    video.read("bingo.avi")
+    video.read("videos/bingo.avi")
 
     threshold = 30
 
@@ -50,6 +50,13 @@ def main():
         Lk = reconstruct_Background(U, S, VT, k)
         errors.append(error(M, Lk))
         variances.append(cumulative_variance(S)[k])
+
+    # print dos valores calculados do erro e da variancia
+    print(f"\n{'k':>5} {'Error':>12} {'Variance':>12}")
+    print("-" * 31)
+    for k, e, v in zip(ks, errors, variances):
+        print(f"{k:>5} {e:>12.4f} {v:>12.4f}")
+    print()
 
     # salvar gráfico erro
     plt.figure()
@@ -100,13 +107,13 @@ def main():
     video.expand(L_uint8)
     video.write(f"{output_dir}/background.mkv")
 
-    i = 10
+    i = 30
 
     original = M[:, i].reshape(video.height, video.width)
     background = L[:, i].reshape(video.height, video.width)
     movement = mask[:, i].reshape(video.height, video.width)
 
-    plt.figure(figsize=(10, 3))
+    plt.figure(figsize=(14, 7))
 
     plt.subplot(1, 3, 1)
     plt.title("Original")
