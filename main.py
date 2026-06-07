@@ -19,7 +19,7 @@ def main():
     # 1. LEITURA DO VÍDEO
     # ======================
     video = VideoBW()
-    video.read("videos/bingo.avi")
+    video.read("videos/stop-motion.mp4")
 
     threshold = 30
 
@@ -107,11 +107,11 @@ def main():
     video.expand(L_uint8)
     video.write(f"{output_dir}/background.mkv")
 
-    i = 30
+    i = 10
 
     original = M[:, i].reshape(video.height, video.width)
     background = L[:, i].reshape(video.height, video.width)
-    movement = mask[:, i].reshape(video.height, video.width)
+    movement = np.clip(S_mov[:, i] * 3, 0, 255).reshape(video.height, video.width)
 
     plt.figure(figsize=(14, 7))
 
