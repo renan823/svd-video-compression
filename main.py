@@ -3,26 +3,80 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+from src.movement import detect_movement
 from src.videobw import VideoBW
-from src.svd_background import (
+from src.svd import (
     SVD,
-    reconstruct_Background,
+    reconstruct_background,
     error,
-    cumulative_variance
+    cumulative_variance,
 )
 
+
+# Logger do codec (só ignorar logs chatos)
 logging.getLogger("libav").setLevel(logging.ERROR)
 
 
+'''
+Salva resultados de erro e variância 
+no formato de gráfico.
+Exibe na stdout os resultados numéricos.
+'''
+def save_variances(dir: str, ks: list[int], errors: list[float], variances: list[float]):
+    # Valores calculados do erro e da variancia
+    print(f"\n{'k':>5} {'Error':>12} {'Variance':>12}")
+    print("-" * 31)
+    
+    for k, e, v in zip(ks, errors, variances):
+        print(f"{k:>5} {e:>12.4f} {v:>12.4f}")
+    print()
+
+    # Salvar gráfico erro
+    plt.figure()
+    plt.plot(ks, errors, 'o-')
+    plt.title("Reconstruction Error")
+    plt.xlabel("k")
+    plt.ylabel("Error")
+    plt.savefig(f"{dir}/error.png")
+    plt.close()
+
+    # Salvar gráfico variância
+    plt.figure()
+    plt.plot(ks, variances, 'o-')
+    plt.title("Cumulative Variance")
+    plt.xlabel("k")
+    plt.ylabel("Variance")
+    plt.savefig(f"{dir}/variance.png")
+    plt.close()
+
+
+'''
+Salva resultados do decaimento
+dos valores singulares como um gráfico.
+'''
+def save_decay(S: np.ndarray, dir: str):
+    sigma_vals = np.diag(S)
+
+    plt.figure()
+    plt.plot(sigma_vals)
+    plt.title("Decaimento dos valores singulares")
+    plt.xlabel("i")
+    plt.ylabel("σ_i")
+    plt.savefig(f"{dir}/singular_values.png")
+    plt.close()
+
+
+'''
+Função principal.
+'''
 def main():
-    # ======================
-    # 1. LEITURA DO VÍDEO
-    # ======================
+    # Leitura do vídeo em bw
     video = VideoBW()
     video.read("videos/stop-motion.mp4")
 
     threshold = 30
 
+    # Diretório de resultados
     output_dir = f"outputs_{threshold}"
     os.makedirs(output_dir, exist_ok=True)
 
@@ -31,124 +85,35 @@ def main():
         f.write(f"Frames: {len(video.frames)}\n")
         f.write(f"Resolution: {video.width}x{video.height}\n")
 
+    # Matriz dos frames
     M = video.vectorize().astype(np.float32)
 
-    # ======================
-    # 2. SVD
-    # ======================
+    # Aplicação do SVD
     U, S, VT = SVD(M)
 
-    # ======================
-    # 3. ERRO + VARIÂNCIA
-    # ======================
+    # Erros e variâncias para reconstrução
     ks = [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 100]
-
     errors = []
     variances = []
 
     for k in ks:
-        Lk = reconstruct_Background(U, S, VT, k)
+        Lk = reconstruct_background(U, S, VT, k)
         errors.append(error(M, Lk))
         variances.append(cumulative_variance(S)[k])
 
-    # print dos valores calculados do erro e da variancia
-    print(f"\n{'k':>5} {'Error':>12} {'Variance':>12}")
-    print("-" * 31)
-    for k, e, v in zip(ks, errors, variances):
-        print(f"{k:>5} {e:>12.4f} {v:>12.4f}")
-    print()
+    # Salvar valores e decaimento
+    save_variances(output_dir, ks, errors, variances)
+    save_decay(S, output_dir)
 
-    # salvar gráfico erro
-    plt.figure()
-    plt.plot(ks, errors, 'o-')
-    plt.title("Reconstruction Error")
-    plt.xlabel("k")
-    plt.ylabel("Error")
-    plt.savefig(f"{output_dir}/error.png")
-    plt.close()
+    # Detecção de movimento
+    detect_movement(M, U, S, VT, threshold, output_dir)
 
-    # salvar gráfico variância
-    plt.figure()
-    plt.plot(ks, variances, 'o-')
-    plt.title("Cumulative Variance")
-    plt.xlabel("k")
-    plt.ylabel("Variance")
-    plt.savefig(f"{output_dir}/variance.png")
-    plt.close()
-
-    # ======================
-    # 4. DECAY SINGULAR VALUES
-    # ======================
-    sigma_vals = np.diag(S)
-
-    plt.figure()
-    plt.plot(sigma_vals)
-    plt.title("Decaimento dos valores singulares")
-    plt.xlabel("i")
-    plt.ylabel("σ_i")
-    plt.savefig(f"{output_dir}/singular_values.png")
-    plt.close()
-
-    # ======================
-    # 5. BACKGROUND + MOVIMENTO
-    # ======================
-    L = reconstruct_Background(U, S, VT, 1)
-
-    S_mov = np.abs(M - L)
-
-    mask = (S_mov > threshold) * 255
-    mask = mask.astype(np.uint8)
-
-    # ======================
-    # 6. FRAME COMPARATIVO
-    # ======================
-    L_uint8 = np.clip(L, 0, 255).astype(np.uint8)
-
-    video.expand(L_uint8)
-    video.write(f"{output_dir}/background.mkv")
-
-    i = 10
-
-    original = M[:, i].reshape(video.height, video.width)
-    background = L[:, i].reshape(video.height, video.width)
-    movement = np.clip(S_mov[:, i] * 3, 0, 255).reshape(video.height, video.width)
-
-    plt.figure(figsize=(14, 7))
-
-    plt.subplot(1, 3, 1)
-    plt.title("Original")
-    plt.imshow(original, cmap="gray")
-
-    plt.subplot(1, 3, 2)
-    plt.title("Background")
-    plt.imshow(background, cmap="gray")
-
-    plt.subplot(1, 3, 3)
-    plt.title("Movement")
-    plt.imshow(movement, cmap="gray")
-
-    plt.savefig(f"{output_dir}/frames_comparacao.png")
-    plt.close()
-
-    # ======================
-    # 7. VÍDEO DO MOVIMENTO
-    # ======================
-    S_vis = np.clip(S_mov * 3, 0, 255).astype(np.uint8)
-    video.frames = [
-        S_vis[:, i].reshape(video.height, video.width)
-        for i in range(S_vis.shape[1])
-    ]
-
-    video.write(f"{output_dir}/movement.mkv")
-
-    # ======================
-    # 8. COMPARAÇÃO SVD
-    # ======================
+    # Comparação SVD numpy
     U2, s2, VT2 = np.linalg.svd(M, full_matrices=False)
 
     L_lib = U2[:, :1] @ np.diag(s2[:1]) @ VT2[:1, :]
 
-    print("Erro SVD manual:", error(M, reconstruct_Background(U, S, VT, 1)))
+    print("Erro SVD manual:", error(M, reconstruct_background(U, S, VT, 1)))
     print("Erro SVD numpy:", error(M, L_lib))
 
 
