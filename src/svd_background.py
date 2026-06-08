@@ -1,39 +1,60 @@
 import numpy as np
 
 
-def Jacobi(A, tol=1e-6, max_iter=10000):
+def Jacobi(A, tol=1e-10, max_iter=10000):
     n = A.shape[0]
     A_k = np.copy(A)
     V = np.eye(n)
 
     for _ in range(max_iter):
-        p, q = np.unravel_index(np.argmax(np.abs(A_k - np.diag(np.diag(A_k)))), A_k.shape)
+        off_diag = np.triu(np.abs(A_k), 1)
+        p, q = np.unravel_index(np.argmax(off_diag), off_diag.shape)
         max_item = A_k[p, q]
 
-        if max_item < tol:
+        if abs(max_item) < tol:
             break
 
-        theta = 0.0
-        diff = A_k[q, q] - A_k[p, p]
-        if abs(A_k[p, q]) < abs(diff) * 1e-36:
-            theta = 0.5 * np.pi / 2
+        tau = (A_k[q, q] - A_k[p, p]) / (2.0 * A_k[p, q])
+
+        t = 0.0
+        if np.isclose(tau, 0):
+            t = 1.0
         else:
-            theta = 0.5 * np.arctan2(2 * A_k[p, q], diff) 
+            t = np.sign(tau) / (abs(tau) + np.sqrt(1 + tau**2))
 
-        c = np.cos(theta)
-        s = np.sin(theta)
+        c = 1.0/np.sqrt(1+t**2)
+        s = t * c
 
-        J = np.eye(n)
-        J[p, p] = c
-        J[q, q] = c
-        J[p, q] = s
-        J[q, p] = -s
+        app = A_k[p, p]
+        aqq = A_k[q, q]
+        apq = A_k[p, q]
 
-        A_k = J.T @ A_k @ J
-        V = V @ J
+        A_k[p, p] = app - t*apq
+        A_k[q, q] = aqq + t*apq
 
+        A_k[p, q] = 0.0
+        A_k[q, p] = 0.0
+
+        for i in range(n):
+            if i != p and i != q:
+
+                aip = A_k[i, p]
+                aiq = A_k[i, q]
+
+                A_k[i, p] = c*aip - s*aiq
+                A_k[p, i] = A_k[i, p]
+
+                A_k[i, q] = s*aip + c*aiq
+                A_k[q, i] = A_k[i, q]
+
+        for i in range(n):
+            vip = V[i, p]
+            viq = V[i, q]
+
+            V[i, p] = c * vip - s * viq
+            V[i, q] = s * vip + c * viq
+        
     return np.diag(A_k), V
-
 
 def SVD(M):
 
