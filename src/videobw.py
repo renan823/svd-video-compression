@@ -42,7 +42,12 @@ class VideoBW:
         self.height = 0
         self.fps = 0
 
-
+    '''
+    Método que permite a leitura de um vídeo,
+    armazenando seus frames.
+    Cada frame passa pela função de luminância,
+    e é convertido para bw.
+    '''
     def read(self, path: str):
         # Abrir e carregar video
         container = av.open(path, mode="r")
@@ -70,8 +75,12 @@ class VideoBW:
                 nframe = frame.to_ndarray(format="rgb24")
                 self.frames.append(luminance(nframe))
                     
-        
-            
+    '''
+    Método que permite codificar o
+    conjunto de frames armazenado em um novo vídeo.
+    O vídeo será criado no formato mkv, e escrito
+    usando pixels bw (não salva RGB).
+    '''
     def write(self, path: str):
         container = av.open(path, mode="w")
 
@@ -91,7 +100,11 @@ class VideoBW:
 
         container.close()
 
-
+    '''
+    Método que gera a matriz contendo os frames
+    do vídeo. Cada coluna da matriz será um frame
+    "esticado", no formato de um vetor 1D.
+    '''
     def vectorize(self) -> np.ndarray:
         w = len(self.frames)
         h = self.width * self.height
@@ -102,7 +115,12 @@ class VideoBW:
         
         return matrix
 
-
+    '''
+    Método que gera o conjunto de frames a partir
+    da matriz com frames nas colunas.
+    A lista de frames é reiniciada, e preenchida
+    com os frames redimensionados.
+    '''
     def expand(self, matrix: np.ndarray):
         # Limpar todos os frames
         self.frames.clear()
