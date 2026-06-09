@@ -17,6 +17,9 @@ def detect_movement(
     VT: np.ndarray, 
     threshold: int, 
     dir: str,
+    height: int,
+    width: int,
+    fps: float,
 ):
     # Detecção de movimento
     L = reconstruct_background(U, S, VT, 1)
@@ -27,6 +30,9 @@ def detect_movement(
 
     # Video do background
     video = VideoBW()
+    video.height = height
+    video.width = width
+    video.fps = fps
     video.expand(np.clip(L, 0, 255).astype(np.uint8))
     video.write(f"{dir}/background.mkv")
 

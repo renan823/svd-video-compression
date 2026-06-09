@@ -72,12 +72,12 @@ Função principal.
 def main():
     # Leitura do vídeo em bw
     video = VideoBW()
-    video.read("videos/stop-motion.mp4")
+    video.read("stop-motion.mp4")
 
     threshold = 30
 
     # Diretório de resultados
-    output_dir = f"outputs_{threshold}"
+    output_dir = f"outputs_th{threshold}"
     os.makedirs(output_dir, exist_ok=True)
 
     with open(f"{output_dir}/info.txt", "w") as f:
@@ -106,7 +106,7 @@ def main():
     save_decay(S, output_dir)
 
     # Detecção de movimento
-    detect_movement(M, U, S, VT, threshold, output_dir)
+    detect_movement(M, U, S, VT, threshold, output_dir, video.height, video.width, video.fps)
 
     # Comparação SVD numpy
     U2, s2, VT2 = np.linalg.svd(M, full_matrices=False)
